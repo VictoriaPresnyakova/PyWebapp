@@ -1,23 +1,19 @@
 from flask import Flask, render_template, request, escape
 import vsearch
-import psycopg2
-from psycopg2 import Error
+from DBcm import UseDatabase
+
 app = Flask(__name__)
 
-
-def log_request(req: 'flask_request', res: str) -> None:
-    dbconfig = {'host': '127.0.0.1',
+app.config['dbconfig'] = {'host': '127.0.0.1',
                 'user': 'vsearch',
                 'password': 'vsearchpasswd',
                 'database': 'vsearchlogDB',
                 'port': '5432'}
-    try:
-        # Подключение к существующей базе данных
-        connection = psycopg2.connect(**dbconfig)
 
-        # Курсор для выполнения операций с базой данных
-        cursor = connection.cursor()
 
+def log_request(req: 'flask_request', res: str) -> None:
+
+    with UseDatabase(app.config['dbconfig']) as cursor:
         _SQL = """INSERT INTO log 
         (phrase, letters, ip, browser_string, results)
         values 
@@ -27,15 +23,6 @@ def log_request(req: 'flask_request', res: str) -> None:
                               req.remote_addr,
                               str(req.user_agent).split('/')[0],
                               res, ))
-        connection.commit()
-
-    except (Exception, Error) as error:
-        print("Ошибка при работе с PostgreSQL", error)
-    finally:
-        if connection:
-            cursor.close()
-            connection.close()
-            print("Соединение с PostgreSQL закрыто")
 
 
 @app.route('/search4', methods=['POST'])
@@ -56,14 +43,12 @@ def entry_page() -> 'html':
 
 @app.route('/viewlog')
 def view_the_log() -> 'html':
-    contents = []
-    row_titles = ('Form Data', 'Remote addr', 'User agent', 'Results')
-    with open('vsearch.log') as log:
-        for lg in log:
-            contents.append([])
-            for elem in (lg.split(' || ')):
-                contents[-1].append(escape(elem))
-        return render_template('viewlog.html', the_title='View Log', the_row_titles=row_titles, the_data=contents)
+    with UseDatabase(app.config['dbconfig']) as cursor:
+        _SQL = """ select phrase, letters, ip, browser_string, results from log"""
+        cursor.execute(_SQL)
+        contents = cursor.fetchall()
+    row_titles = ('Phrase', 'Letters', 'Remote addr', 'User agent', 'Results')
+    return render_template('viewlog.html', the_title='View Log', the_row_titles=row_titles, the_data=contents)
 
 
 if __name__ == '__main__':
