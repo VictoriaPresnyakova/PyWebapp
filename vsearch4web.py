@@ -54,7 +54,7 @@ def view_the_log() -> 'html':
 
 
 @app.route('/login')
-def do_logout() -> str:
+def do_login() -> str:
     session['logged_in'] = True
     return 'You are now logged in'
 
