@@ -2,6 +2,14 @@ import psycopg2
 from psycopg2 import Error
 
 
+class SQLError(Exception):
+    pass
+
+
+class ConnectionError(Exception):
+    pass
+
+
 class UseDatabase:
     def __init__(self, config: dict) -> None:
         self.configuration = config
@@ -14,8 +22,8 @@ class UseDatabase:
             # Курсор для выполнения операций с базой данных
             self.cursor = self.connection.cursor()
             #connection.commit()
-        except (Exception, Error) as error:
-            print("Ошибка при работе с PostgreSQL", error)
+        except psycopg2.OperationalError as error:
+            raise ConnectionError(error)
 
         return self.cursor
 
@@ -25,3 +33,5 @@ class UseDatabase:
             self.cursor.close()
             self.connection.close()
             print("Соединение с PostgreSQL закрыто")
+        if exc_type:
+            raise SQLError(exc_type)
